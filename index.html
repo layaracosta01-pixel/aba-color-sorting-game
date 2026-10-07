@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark to Light Color Sorting Game</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#24313f;min-height:100vh}
+.wrap{max-width:900px;margin:0 auto;padding:28px 18px 40px}
+.card{background:white;border-radius:22px;padding:28px;box-shadow:0 8px 28px rgba(0,0,0,.10)}
+h1{margin:0 0 8px;text-align:center;font-size:32px}
+.subtitle{text-align:center;color:#64748b;margin-bottom:20px}
+.status{text-align:center;font-weight:700;margin:12px 0 22px}
+.instructions{text-align:center;background:#eef2f7;border-radius:14px;padding:12px;margin-bottom:22px}
+.source-title,.target-title{text-align:center;font-weight:700;margin:12px 0}
+.source,.targets{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;min-height:110px}
+.color{width:105px;height:90px;border-radius:16px;cursor:grab;border:4px solid transparent;box-shadow:0 4px 10px rgba(0,0,0,.14);transition:.15s}
+.color.selected{border-color:#111827;transform:scale(1.05)}
+.target{width:105px;height:90px;border:3px dashed #aab4c0;border-radius:16px;display:flex;align-items:center;justify-content:center;background:#f8fafc;position:relative}
+.target.filled{border-style:solid}
+.target-number{position:absolute;top:-12px;background:#334155;color:white;border-radius:999px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.controls{display:flex;justify-content:center;gap:12px;margin-top:26px;flex-wrap:wrap}
+button{border:0;border-radius:12px;padding:13px 22px;font-size:16px;font-weight:700;cursor:pointer}
+#check{background:#2563eb;color:white}
+#reset{background:#e2e8f0;color:#1e293b}
+.feedback{text-align:center;font-size:18px;font-weight:700;min-height:28px;margin-top:18px}
+.correct{color:#15803d}.wrong{color:#b91c1c}
+.complete{text-align:center;padding:30px 10px}.complete h2{font-size:30px;margin:8px}
+@media(max-width:600px){.color,.target{width:82px;height:72px}.card{padding:18px}h1{font-size:25px}}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card">
+<h1>Dark → Light Color Sorting</h1>
+<div class="subtitle">Arrange the colors from darkest to lightest.</div>
+<div class="status" id="status"></div>
+<div class="instructions">Drag the colors into the boxes in order, or click a color and then click a box.</div>
+<div id="game"></div>
+</div></div>
+<script>
+const palettes=[
+["#511111","#762222","#9d3939","#ca6b6b","#efb0b0"],
+["#102f52","#1c4e7c","#3974a5","#72a3c8","#bfd9e8"],
+["#123d28","#236a43","#438d61","#78b596","#b9d8c5"],
+["#41235d","#604080","#8161a0","#aa91c1","#d7cbe1"],
+["#53370c","#795019","#9f732d","#c7a85e","#e5d6aa"]
+];
+let trial=0,score=0,items=[],selected=null;
+const game=document.getElementById("game"),status=document.getElementById("status");
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function render(){
+ if(trial>=palettes.length){game.innerHTML='<div class="complete"><h2>🎉 Great job!</h2><p>You completed all 5 trials.</p><button id="reset" onclick="restart()">Play Again</button></div>';status.textContent='Score: '+score+'/5';return}
+ items=shuffle(palettes[trial]);selected=null;
+ status.textContent='Trial '+(trial+1)+' of 5  |  Score: '+score+'/5';
+ game.innerHTML='<div class="source-title">Colors</div><div class="source" id="source"></div><div class="target-title">Darkest → Lightest</div><div class="targets" id="targets"></div><div class="controls"><button id="check">Check Answer</button><button id="reset">New Trial</button></div><div class="feedback" id="feedback"></div>';
+ const source=document.getElementById("source"), targets=document.getElementById("targets");
+ items.forEach((c,i)=>{const el=document.createElement("div");el.className="color";el.style.background=c;el.draggable=true;el.dataset.color=c;el.addEventListener("dragstart",e=>e.dataTransfer.setData("text/plain",c));el.addEventListener("click",()=>{selected=c;document.querySelectorAll(".color").forEach(x=>x.classList.remove("selected"));el.classList.add("selected")});source.appendChild(el)});
+ for(let i=0;i<5;i++){const t=document.createElement("div");t.className="target";t.dataset.index=i;t.innerHTML='<span class="target-number">'+(i+1)+'</span>';t.addEventListener("dragover",e=>e.preventDefault());t.addEventListener("drop",e=>place(e.dataTransfer.getData("text/plain"),t));t.addEventListener("click",()=>{if(selected)place(selected,t)});targets.appendChild(t)}
+ document.getElementById("check").onclick=check;document.getElementById("reset").onclick=restart;
+}
+function place(color,target){
+ const existing=target.querySelector(".color");
+ if(existing){document.getElementById("source").appendChild(existing)}
+ const el=document.createElement("div");el.className="color";el.style.background=color;el.dataset.color=color;el.draggable=true;
+ el.addEventListener("dragstart",e=>e.dataTransfer.setData("text/plain",color));
+ el.addEventListener("click",()=>{selected=color;document.querySelectorAll(".color").forEach(x=>x.classList.remove("selected"));el.classList.add("selected")});
+ target.appendChild(el);selected=null;document.querySelectorAll(".color").forEach(x=>x.classList.remove("selected"));
+}
+function check(){
+ const targets=[...document.querySelectorAll(".target")], correct=palettes[trial];
+ const answers=targets.map(t=>t.querySelector(".color")?.dataset.color||null);
+ const fb=document.getElementById("feedback");
+ if(answers.some(x=>!x)){fb.className="feedback wrong";fb.textContent="Please place all 5 colors first.";return}
+ if(answers.every((x,i)=>x===correct[i])){
+  score++;fb.className="feedback correct";fb.textContent="✓ Correct!";
+  setTimeout(()=>{trial++;render()},700);
+ }else{fb.className="feedback wrong";fb.textContent="Not quite. Try again — darkest to lightest."}
+}
+function restart(){trial=0;score=0;render()}
+render();
+</script>
+</body>
+</html>
